@@ -1,0 +1,152 @@
+/**
+ *   This AdWords Script Template is prepared to be executed at Account level and at MCC level as well
+ *   Version 1.1
+ *   Changelog v1.1 - Added parallel/sequential execution option
+ *
+ *   You can choose how to execute it modifying mccLevelScript variable:
+ *
+ *            mccLevelScript = true; -> MCC Level execution
+ *            mccLevelScript = false; -> Account level execution
+ * 
+ *   In the case of MCC level execution, you can filter Accounts by label with mccLabelText variable:
+ * 
+ *            mccLabelText = 'no label'; -> NO filtering
+ *            mccLabelText = 'Other text'; -> Filtering by MCC Label that has 'Other text' name
+ * 
+ *   NEW v1.1 You can choose if enable or not parallel execution changing parallelExecution variable as following:
+ * 
+ *            parallelExecution = true; -> Parallel execution ENABLED
+ *            parallelExecution = false; -> Parallel execution DISABLED // This is the by default option
+ *
+ *   Last version available in: https://github.com/AlbertoEstevesC/AdWords-Scripts/blob/master/AdWordsScriptMMCAndAccountTemplate
+ *
+ *   SPANISH explanation: https://www.albertoestevescorreia.com/adwords-script-plantilla-scripts-ejecutables-nivel-mcc-cuenta/
+ *
+ *   @Author: Alberto Esteves Correia
+ *   https://www.albertoestevescorreia.com
+ **/
+
+// ---------------- GLOBAL VARIABLES ---------------------------
+
+var mccLevelScript = true; // "true" value for MCC level script execution // "false" value for account level script execution	
+var mccLabelText = 'no label'; // Filter AdWords accounts which have this MCC Account label	// 'no label' = NO filtering	
+var parallelExecution = false; // "true" to enable parallel AdWords Scripts execution // "false" to disable it. This is the by default option
+
+	 /////////////////////////////////////////////////////////////////////////////
+    //                                                                         //	
+   //                INSERT YOUR GLOBAL VARIABLES HERE                        //
+  //        (These variables may be used in any part of the script)          //
+ //                                                                         //
+///////////////////////////////////////////////////////////////////////////// 
+
+// ------------------------------------------------------------------------------------------------------------
+
+
+
+function accountCodeExecution (){ 
+
+	 /////////////////////////////////////////////////////////////////////////////
+    //                                                                         //	
+   //              INSERT YOUR LOCAL SCRIPT CODE HERE                        //
+  //     (This code will be executed FOR EACH selected AdWords account)      //
+ //                                                                         //
+///////////////////////////////////////////////////////////////////////////// 
+
+  return true;
+} // End of accountCodeExecution function
+
+
+	 /////////////////////////////////////////////////////////////////////////////
+    //                                                                         //	
+   //             INSERT YOUR AUXILIARY FUNCTIONS HERE                        //
+  //     (This code will be executed FOR EACH function call)                 //
+ //                                                                         //
+///////////////////////////////////////////////////////////////////////////// 
+
+
+// ----------------------------------------------------------------
+
+function getFilteredMccAccounts (){
+  var accountIterator;
+  var accountIds = [];
+  var accountId;
+  
+  if (mccLabelText != "no label") { // Filter accounts by MCC label
+	accountIterator = MccApp.accounts().withCondition("LabelNames CONTAINS '" + mccLabelText +"'").orderBy('Name').get();
+  } else { // Execute script for all MCC accounts
+	accountIterator = MccApp.accounts().orderBy('Name').get();
+  }
+
+  while (accountIterator.hasNext()) {
+    accountId = accountIterator.next().getCustomerId();
+    accountIds.push(accountId);
+  }
+  return accountIds;
+} // End of getFilteredMccAccounts function
+
+
+function executeInSequence (sequentialIds, executeSequentiallyFunc) {
+  //Logger.log('Executing in sequence : ' + sequentialIds);
+  sequentialIds.forEach(function (accountId) {
+    //Logger.log("\nACCOUNT ID: " + accountId + "\n");
+    var account = MccApp.accounts().withIds([accountId]).get().next();
+    MccApp.select(account);
+    var res = executeSequentiallyFunc();
+  });
+} // End of executeInSequence function
+
+// ----------------------------------------------------------------
+
+
+function main () {
+  try {	  
+	 /////////////////////////////////////////////////////////////////////////////
+    //                                                                         //	
+   //            INSERT YOUR GLOBAL SCRIPT INITIAL CODE HERE                  //
+  //  (This code will be executed once BEFORE selecting any AdWords account) //
+ //                                                                         //
+/////////////////////////////////////////////////////////////////////////////   
+    
+   if (mccLevelScript){ // MCC Level execution
+     var accountIds = getFilteredMccAccounts();
+      
+     var sequentialIds;
+     
+     if (parallelExecution) {
+       var parallelIds = accountIds.slice(0, 50);
+       sequentialIds = accountIds.slice(50);
+       
+       // execute accross accounts
+       MccApp.accounts()
+         .withIds(parallelIds)
+         .executeInParallel('accountCodeExecution');
+       
+     } else {  // sequential execution only
+       sequentialIds = accountIds.slice(0);
+     }
+     
+     if (accountIds.length > 0) {
+       executeInSequence(sequentialIds, accountCodeExecution);
+     } 
+     
+   } else { // Account Level execution
+     var aux = accountCodeExecution();
+   }
+   
+	 /////////////////////////////////////////////////////////////////////////////
+    //                                                                         //	
+   //            INSERT YOUR GLOBAL SCRIPT FINAL CODE HERE                    //
+  //  (This code will be executed AFTER processing ALL AdWords accounts)     //
+ //                                                                         //
+///////////////////////////////////////////////////////////////////////////// 
+    
+ } catch (exception) {
+	 // Logger.getLog();
+	 /////////////////////////////////////////////////////////////////////////////
+    //                                                                         //	
+   //                    INSERT YOUR ERROR CODE HERE                          //
+  //  (This code will be executed ONLY in case of SCRIPT EXECUTION ERROR)    //
+ //                                                                         //
+///////////////////////////////////////////////////////////////////////////// 
+ }
+} // End of Script

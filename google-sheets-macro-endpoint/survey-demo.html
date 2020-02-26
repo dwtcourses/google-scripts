@@ -1,0 +1,200 @@
+<html>
+    <head><title>Survey using Google Sheets</title></head>
+    <body>
+        <h1>Survey using Google Sheets</h1>
+        <h2>What's in it for me (WIIFM)?</h2>
+        <p>We will use Google Sheets to publish a google scripts macro endpoint we can use from other websites or services</p>
+        <p>Here's a demo of a Satisfaction Survey that fires on more than 3 pageviews, if the survey has not been yet activated before</p>
+        <h2>Google Tag Manger</h2>
+        <h3>Variables</h3>
+        <ul>
+            <li><strong>Cookie - feedbackFormCompletion</strong><br>Name: feedbackFormCompletion</li>
+            <li><strong>Cookie - PageCount</strong><br>Name: PageCount</li>
+        </ul>
+        <h3>Triggers</h3>
+        <ul>
+            <li><strong>Event - Feedback survey activation</strong><br>Cookie - feedbackFormCompletion does not equal 1<br>Cookie - PageCount greater than 2</li>
+            <li><strong>Event - feedbackFormCompletion</strong><br>Event name: feedbackFormCompletion</li>
+        </ul>
+        <h3>Tags</h3>
+        <h4>HTML - Feedback survey - Activation</h4>
+        <p>Firing Triggers: Event - Feedback survey activation</p>
+        <textarea cols="80" rows="8">
+        <script>
+            document.getElementById('feedback-modal').style.display='block';
+            /* Show only once. Check https://www.simoahava.com/analytics/two-ways-to-persist-data-via-google-tag-manager/ */
+            var days=7*24*60*60*1000;
+            {{JS - setCookie}}('feedbackFormCompletion',1,days,'/','domain.com');  
+        </script>
+        </textarea>
+        <h4>HTML - Feedback survey - Completion</h4>
+        <p>Firing Triggers: Event - feedbackFormCompletion</p>
+        <textarea cols="80" rows="8">
+        <script>
+            var days=7*24*60*60*1000;
+            {{JS - setCookie}}('feedbackFormCompletion',1,days,'/','domain.com');
+        </script>
+        </textarea>
+        <h4>HTML - PageCount</h4>
+        <p>Firing Triggers: Page View - All Pages</p>
+        <textarea cols="80" rows="8">
+            <script>
+                (function(){
+                    var cc = {{Cookie - PageCount}}-0+1
+                    document.cookie="PageCount="+cc+";path=/;";
+                }());
+            </script>
+        </textarea>
+        
+<h2>Google Scripts editor from Google Sheets</h2>
+<p>Create a new Google sheets and open sripts editor from tools menu</p>
+<textarea cols="80" rows="8">
+    var SHEET_NAME = "form1";    //  Enter sheet name where data is to be written
+    var SCRIPT_PROP = PropertiesService.getScriptProperties();
+    function doGet(e){
+        return handleResponse(e);
+    }
+    function handleResponse(e) {
+        var lock = LockService.getPublicLock();
+        lock.waitLock(30000);  // wait 30 seconds before conceding defeat.
+        try {
+            var doc = SpreadsheetApp.openById(SCRIPT_PROP.getProperty("key"));
+            var sheet = doc.getSheetByName(SHEET_NAME);
+            var headRow = e.parameter.header_row || 1; // You can override header in row 1 sending header_row
+            var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+            var nextRow = sheet.getLastRow()+1;
+            var row = []; 
+            for (i in headers){
+                if (headers[i] == "Timestamp"){ // special case if you include a 'Timestamp' column
+                    row.push(new Date());
+                } else {
+                    row.push(e.parameter[headers[i]]);
+                }
+            }
+            sheet.getRange(nextRow, 1, 1, row.length).setValues([row]);
+            return ContentService
+                .createTextOutput(JSON.stringify({"result":"success", "row": nextRow}))
+                .setMimeType(ContentService.MimeType.JSON); // return json success results
+
+        } catch(e){
+            return ContentService
+                .createTextOutput(JSON.stringify({"result":"error", "error": e}))
+                .setMimeType(ContentService.MimeType.JSON);
+        } finally {
+            lock.releaseLock();
+        }
+    }
+    function setup() {
+        var doc = SpreadsheetApp.getActiveSpreadsheet();
+        SCRIPT_PROP.setProperty("key", doc.getId());
+    }
+    </textarea>
+
+    <h2>Website code</h2>
+    <p>Change "key" with corresponding your published macro id.</p>
+    <textarea cols="80" rows="8">
+    <div id="feedback-modal" class="modal2" style="display: none;">
+        <div class="modal2-content">
+            <span class="close">×</span>
+            <form id="feedback-form">
+                <h2>¿Cuál es la razón para visitar nuestro sitio web hoy?</h2>
+                <p>
+                    <label><input type="checkbox" value="1" name="form1_field1">&nbsp;Primero, me gustaría saber más sobre el sitio web.</label><br>
+                    <label><input type="checkbox" value="1" name="form1_field2">&nbsp;En general, estoy viendo lo que hay en el sitio.</label><br>
+                    <label><input type="checkbox" value="1" name="form1_field3">&nbsp;Estoy buscando algo específico.</label><br>
+                    <label><input type="checkbox" value="1" name="form1_field4">&nbsp;Estoy aquí para comprar algo hoy.</label>
+                </p>
+                <input id="submit-feedback-form" type="submit" value="Submit">
+            </form>
+        </div>
+    </div>
+    <style>
+    .modal2 {
+        display: none; /* Hidden by default */
+        position: fixed; /* Stay in place */
+        z-index: 1000; /* Sit on top */
+        left: 0;
+        top: 0;
+        width: 100%; /* Full width */
+        height: 100%; /* Full height */
+        overflow: none; /* Enable scroll if needed */
+        background-color: rgb(0,0,0); /* Fallback color */
+        background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+    }
+    .modal2-content { 
+        background-color: #fefefe;
+        margin: 3% auto; /* 15% from the top and centered */
+        padding: 20px;
+        border: 1px solid #888;
+        width: 80%; /* Could be more or less, depending on screen size */
+        max-width:780px;
+    }
+    .close {
+        color: #aaa;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+        opacity:0.8;
+    }
+    .close:hover,
+    .close:focus {
+        color: black;
+        text-decoration: none;
+        cursor: pointer;
+        opacity:0.8;
+    }
+    </style>
+    <script src="https://raw.githubusercontent.com/macek/jquery-serialize-object/master/dist/jquery.serialize-object.min.js"></script>
+    <script>
+    var label_modal = document.getElementById('label-modal');
+    var label_btn = document.getElementsByClassName("label-button");
+    Array.from(label_btn).forEach(function(e,i){
+        e.onclick = function() {
+            label_modal.style.display = "block";
+        }
+    });
+    var feedback_modal=document.getElementById('feedback-modal');
+    var feedback_btn=document.getElementsByClassName("feedback-button");
+    Array.from(feedback_btn).forEach(function(e,i){
+        e.onclick = function() {
+            feedback_modal.style.display = "block";
+        }
+    });
+    var close = document.getElementsByClassName("close");
+    Array.from(close).forEach(function(e,i){
+        e.onclick = function() {
+            label_modal.style.display = "none";
+            feedback_modal.style.display = "none";
+        }
+    });
+    window.onclick = function(event) {
+        if (event.target == label_modal) {
+            label_modal.style.display = "none";
+        }
+        if (event.target == feedback_modal) {
+            feedback_modal.style.display = "none";
+        }
+    }
+    </script>
+    <script>
+    (function(){
+        var $form = $('form#feedback-form');
+        var url = 'https://script.google.com/macros/s/<key>/exec';
+        $('#submit-feedback-form').on('click', function(e) {
+            e.preventDefault();
+            var jqxhr = $.ajax({
+                url: url,
+                method: "GET",
+                dataType: "json",
+                data: $form.serializeObject()
+            }).success(function(data) {
+                $('form#feedback-form').hide();
+                $("#feedback-modal .modal2-content").append("Thanks / Danke / Merci / Grazie / Gracias "); 
+                dataLayer.push({'event':'feedbackFormCompletion'});
+            });
+        });
+    })();
+    </script>
+    </textarea>
+    </body>
+    </html>

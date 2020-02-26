@@ -1,0 +1,54 @@
+/**
+ * This Account level script removes low performance Display placements with more than 1000 impressions AND no clicks AND no view through conversions AND no conversions 
+ * (you can edit these values on the top level variables).
+ * If one of the placements detected is anonymous.google, the script doesn't exclude it  
+ *
+ * @author Alberto Esteves
+ * URL: http://www.albertoestevescorreia.com/adwords-script-eliminar-ubicaciones-display-bajo-rendimiento/
+ *
+ * Inspired by:
+ *  
+ *  Dawson Reid
+ *  Andrew Breen
+ */
+
+
+var impressionsMinimum = 1000; // Select Display placements which have at least that number of impressions 
+var clicksLimit = 0; // Select Display placements which have no more than that number of clicks 
+var conversionsLimit = 0; // Select Display placements which have no more than that number of conversions 
+var ViewThroughConversionsLimit = 0; // Select Display placements which have no more than that number of post-impression conversions 
+var timePeriod = "ALL_TIME"; // Period of time to analyze. You can choose another value according to https://developers.google.com/adwords/scripts/docs/reference/adwordsapp/adwordsapp_campaignselector?hl=es-419#forDateRange_1  							  							  
+
+ 
+// -------------------------------------------------------
+
+function main () {
+  var DisplayPlacements = AdWordsApp.display().placements()
+ 	.withCondition("Clicks <= "+clicksLimit)
+	.withCondition("Impressions >= "+impressionsMinimum)
+    .withCondition("Conversions <= "+conversionsLimit)
+	.withCondition("ViewThroughConversions <= "+ViewThroughConversionsLimit)
+	.withCondition("CampaignStatus != REMOVED")
+	.forDateRange(timePeriod)
+    .get();
+    
+  var placementurl, placement;
+  
+  while (DisplayPlacements.hasNext()) {
+   
+    placement = DisplayPlacements.next();
+    Logger.log(placement.getUrl());
+
+    var campaign = placement.getCampaign();
+    var adGroup = placement.getAdGroup();    
+    if (placementurl != 'anonymous.google') {
+      var excludeOperation = adGroup.display().newPlacementBuilder().withUrl(placementurl).exclude(); // Exclude Display placement detected
+      
+    }
+      if (!excludeOperation.isSuccessful()) {
+		  Logger.log("Could not exclude : " + placementurl);
+	  } else { 
+      Logger.log("Don't exclude anonymous.google.com !");
+	}
+  }  
+}
